@@ -1,7 +1,5 @@
 #include <LiquidCrystal.h>
-
 #include <Servo.h>
-#include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <MFRC522.h>
 

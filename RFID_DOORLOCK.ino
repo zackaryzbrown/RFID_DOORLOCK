@@ -1,55 +1,87 @@
+#include <LiquidCrystal.h>
+
+#include <Servo.h>
+#include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <MFRC522.h>
 
 #define SS_PIN 10
 #define RST_PIN 9
+String UID = "43 02 78 1A";
+byte lock = 0;
 
-MFRC522 myRFID(SS_PIN, RST_PIN);
+Servo servo;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+MFRC522 rfid(SS_PIN, RST_PIN);
 
-int pinLEDRed=2;
-int pinLEDGreen=7;
 
 void setup() {
   Serial.begin(9600);
+  lcd.init();
+  lcd.backlight();
+  servo.attach(3);
+  servo.write(0);
   SPI.begin();
-  myRFID.PCD_Init();
-  pinMode(pinLEDRed, OUTPUT);
-  pinMode(pinLEDGreen, OUTPUT);
+  rfid.PCD_Init();
 }
 
 void loop() {
-  if(!myRFID.PICC_IsNewCardPresent()){
-    return;
-    }
-  if(! myRFID.PICC_ReadCardSerial()){
-    return;
-    }
+  lcd.setCursor(4, 0);
+  lcd.print("Welcome!");
+  lcd.setCursor(1, 1);
+  lcd.print("Put your card");
 
-  Serial.println("USER ID tag :");
-  String content="";
-  for (byte i = 0; i < myRFID.uid.size; i++) {
-      Serial.println(myRFID.uid.uidByte[i] < 0x10 ? " 0" : " ");
-      Serial.println(myRFID.uid.uidByte[i], HEX);
-      content.concat(String(myRFID.uid.uidByte[i] < 0x10 ? " 0" : " "));
-      content.concat(String(myRFID.uid.uidByte[i], HEX));
-  }
-  delay(500);
-  Serial.println();
+  if ( ! rfid.PICC_IsNewCardPresent())
+    return;
+  if ( ! rfid.PICC_ReadCardSerial())
+    return;
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
 
   
-  Serial.print("Message : ");
-  content.toUpperCase();
-  if(content.substring(1) == "43 02 78 1A"){
-    Serial.println("Access Granted!");
-    digitalWrite(pinLEDGreen,HIGH);
-    Serial.println();
-    delay(2000);
-    digitalWrite(pinLEDGreen,LOW);
+  lcd.print("Scanning");
+  Serial.println();
+  Serial.print("Scanning:");
+  delay(500);
+  String ID = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    lcd.print(".");
+    Serial.print(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
+    Serial.print(rfid.uid.uidByte[i], HEX);
+    ID.concat(String(rfid.uid.uidByte[i] < 0x10 ? " 0" : " "));
+    ID.concat(String(rfid.uid.uidByte[i], HEX));
+    delay(300);
   }
-  else{
-    digitalWrite(pinLEDRed,HIGH);
-    Serial.println("Access Denied!");
+  ID.toUpperCase();
+
+  if (ID.substring(1) == UID && lock == 0 ) {
+    servo.attach(3);
+    servo.write(300);
     delay(2000);
-    digitalWrite(pinLEDRed, LOW);
-   }
+    servo.detach();
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Door is locked");
+    delay(1500);
+    lcd.clear();
+    lock = 1;
+  } else if (ID.substring(1) == UID && lock == 1 ) {
+    servo.attach(3);
+    servo.write(0);
+    delay(2000);
+    servo.detach();
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Door is open");
+    delay(1500);
+    lcd.clear();
+    lock = 0;
+  } else {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Wrong card!");
+    delay(1500);
+    lcd.clear();
+  }
 }
